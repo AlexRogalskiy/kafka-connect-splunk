@@ -46,6 +46,24 @@ spec:
         volumeMounts:
         - mountPath: /tmp
           name: splunk-tmpfs0
+      - name: exporter
+        image: turbonomic/exporter
+        imagePullPolicy: IfNotPresent
+#        args:
+#        - --namespace=customer
+#        - --mode=stdout
+#        - --loglevel=DEBUG
+        resources:
+          limits:
+            memory: 12Gi
+        securityContext:
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        volumeMounts:
+        - mountPath: /tmp
+          name: splunk-tmpfs0
       volumes:
       - name: splunk-tmpfs0
         emptyDir: {}
