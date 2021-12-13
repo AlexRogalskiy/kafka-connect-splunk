@@ -1,4 +1,3 @@
-[![CircleCI](https://circleci.com/gh/git-lfs/git-lfs.svg?style=shield&circle-token=856152c2b02bfd236f54d21e1f581f3e4ebf47ad)](https://circleci.com/gh/splunk/kafka-connect-splunk)
 ## Splunk Connect for Kafka
 
 Splunk Connect for Kafka is a Kafka Connect Sink for Splunk with the following features:
@@ -9,18 +8,27 @@ Splunk Connect for Kafka is a Kafka Connect Sink for Splunk with the following f
 ## Requirements
 1. Kafka version 1.0.0 and above.
 2. Java 8 and above.
-3. A Splunk environment of version 6.5 and above, configured with valid HTTP Event Collector (HEC) tokens.
+3. A Splunk environment of version 7.1 and above, configured with valid HTTP Event Collector (HEC) tokens.
 
 	* HEC token settings should be the same on all Splunk Indexers and Heavy Forwarders in your environment.
 	* Task configuration parameters will vary depending on acknowledgement setting (See the [Configuration](#configuration) section for details).
 
 	Note: HEC Acknowledgement prevents potential data loss but may slow down event ingestion.
+	
+## Supported technologies
+
+Splunk Connect for Kafka lets you subscribe to a Kafka topic and stream the data to the Splunk HTTP event collector on the following technologies:
+
+* Apache Kafka
+* Amazon Managed Streaming for Apache Kafka (Amazon MSK)
+* Confluent Platform
 
 ## Build
 
 1. Clone the repo from https://github.com/splunk/kafka-connect-splunk
 2. Verify that Java8 JRE or JDK is installed.
-3. Run `mvn package`. This will build the jar in the /target directory. The name will be `splunk-kafka-connect-[VERSION].jar`.
+3. Verify that maven is installed.
+4. Run `mvn package`. This will build the jar in the /target directory. The name will be `splunk-kafka-connect-[VERSION].jar`.
 
 ## Quick Start
 
@@ -89,7 +97,7 @@ Use the below schema to configure Splunk Connect for Kafka
 "config": {
    "connector.class": "com.splunk.kafka.connect.SplunkSinkConnector",
    "tasks.max": "<number-of-tasks>",
-   "topics": "<list-of-topics-separated-by-comma>",
+   "topics" or "topics.regex": "<list-of-topics-separated-by-comma>" or "<regex to subscribe all the topics which match the regex pattern>"
    "splunk.indexes": "<list-of-indexes-for-topics-data-separated-by-comma>",
    "splunk.sources": "<list-of-sources-for-topics-data-separated-by-comma>",
    "splunk.sourcetypes": "<list-of-sourcetypes-for-topics-data-separated-by-comma>",
@@ -133,11 +141,12 @@ Use the below schema to configure Splunk Connect for Kafka
 | `tasks.max` |  The number of tasks generated to handle data collection jobs in parallel. The tasks will be spread evenly across all Splunk Kafka Connector nodes.||
 | `splunk.hec.uri` | Splunk HEC URIs. Either a list of FQDNs or IPs of all Splunk indexers, separated with a ",", or a load balancer. The connector will load balance to indexers using round robin. Splunk Connector will round robin to this list of indexers. `https://hec1.splunk.com:8088,https://hec2.splunk.com:8088,https://hec3.splunk.com:8088`||
 | `splunk.hec.token` |  [Splunk Http Event Collector token](http://docs.splunk.com/Documentation/SplunkCloud/6.6.3/Data/UsetheHTTPEventCollector#About_Event_Collector_tokens).||
-| `topics` |  Comma separated list of Kafka topics for Splunk to consume. `prod-topic1,prod-topc2,prod-topic3`||
+| `topics` or `topics.regex` |  For **topics**: Comma separated list of Kafka topics for Splunk to consume. `prod-topic1,prod-topc2,prod-topic3` <br/> For **topics.regex**: Use for declaring topic subscriptions as name pattern, instead of specifying each topic in a list. `^prod-topic[0-9]$`<br/> **NOTE:** <br/> 1) If "topics.regex" is specified, the "topics" parameter must be omitted.<br/> 2) With "topics.regex", the Splunk meta fields("splunk.indexes", "splunk.sourcetypes", "splunk.sources") are ignored and should be omitted.<br/> 3) With "topics.regex" the Splunk metadata must either be defined on a per-event basis by using Kafka Header Fields("splunk.header.index", "splunk.header.sourcetype", etc.), OR it can be defined by the HEC token default index and sourcetype values.
+ 
 #### General Optional Parameters
 | Name              | Description                | Default Value  |
 |--------           |----------------------------|-----------------------|
-| `splunk.indexes` | Target Splunk indexes to send data to. It can be a list of indexes which shall be the same sequence / order as topics. It is possible to inject data from different kafka topics to different splunk indexes. For example, prod-topic1,prod-topic2,prod-topic3 can be sent to index prod-index1,prod-index2,prod-index3. If you would like to index all data from multiple topics to the main index, then "main" can be specified. Leaving this setting unconfigured will result in data being routed to the default index configured against the HEC token being used. Verify the indexes configured here are in the index list of HEC tokens, otherwise Splunk HEC will drop the data. |`""`|
+| `splunk.indexes` | Target Splunk indexes to send data to. It can be a list of indexes which shall be the same sequence / order as topics. It is possible to inject data from different kafka topics to different splunk indexes. For example, prod-topic1,prod-topic2,prod-topic3 can be sent to index prod-index1,prod-index2,prod-index3. In that case, the configuration `topics` count must match the `splunk.indexes` count. If you would like to index all data from multiple topics to the main index, then "main" can be specified. Leaving this setting unconfigured will result in data being routed to the default index configured against the HEC token being used. Verify the indexes configured here are in the index list of HEC tokens, otherwise Splunk HEC will drop the data. |`""`|
 | `splunk.sources` |  Splunk event source metadata for Kafka topic data. The same configuration rules as indexes can be applied. If left unconfigured, the default source binds to the HEC token. | `""` |
 | `splunk.sourcetypes` | Splunk event sourcetype metadata for Kafka topic data. The same configuration rules as indexes can be applied here. If left unconfigured, the default source binds to the HEC token. | `""` |
 | `splunk.flush.window` | The interval in seconds at which the events from kafka connect will be flushed to Splunk. | `30` |
@@ -155,6 +164,7 @@ Use the below schema to configure Splunk Connect for Kafka
 | `splunk.hec.max.retries` | Amount of times a failed batch will attempt to resend before dropping events completely. Warning: This will result in data loss, default is `-1` which will retry indefinitely  | `-1` |
 | `splunk.hec.backoff.threshhold.seconds` | The amount of time Splunk Connect for Kafka waits to attempt resending after errors from a HEC endpoint." | `60` |
 | `splunk.hec.lb.poll.interval`  |  Specify this parameter(in seconds) to control the polling interval(increase to do less polling, decrease to do more frequent polling) |  `120` |
+| `splunk.hec.enable.compression` | Valid settings are true or false. Used for enable or disable gzip-compression. |`false`|
 ### Acknowledgement Parameters
 #### Use Ack
 | Name              | Description                | Default Value  |
